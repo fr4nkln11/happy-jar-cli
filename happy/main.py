@@ -37,9 +37,9 @@ skip_flower = ""
 
 def write_file(payload, tag, time=None):
     if tag is not None:
-        payload = payload + " #" + tag
+        payload = f"{payload} #{tag}"
     if time is None:
-        time = datetime.today()
+        time = datetime.now()
         try:
             time = time.strftime("%A %-d/%b/%Y %-I:%M %p")
         except ValueError:
@@ -94,7 +94,7 @@ def read_file(
         exit()
 
     if today:
-        time = datetime.today()
+        time = datetime.now()
         try:
             today = time.strftime("%A %-d/%b/%Y")
         except ValueError:
@@ -110,7 +110,7 @@ def read_file(
     elif tag is not None:
         with open(f"{HOME}/.happyjar.txt", "r") as happy_file:
             for line in happy_file:
-                if line.strip().endswith(" #" + tag):
+                if line.strip().endswith(f" #{tag}"):
                     display = True
                     display_entry(flowers, line, nocolor)
 
@@ -142,16 +142,13 @@ def read_file(
                                 display = True
                                 display_entry(flowers, line, nocolor)
                         elif before:  # `happy get before <date>`
-                            if dt < converted_dt:
-                                display = True
-                                display_entry(flowers, line, nocolor)
-                            else:
+                            if dt >= converted_dt:
                                 break
-                        else:  # `happy get <date>`
-                            match = re.match(dt_re, line)
-                            if match:
-                                display = True
-                                display_entry(flowers, line, nocolor)
+                            display = True
+                            display_entry(flowers, line, nocolor)
+                        elif match := re.match(dt_re, line):
+                            display = True
+                            display_entry(flowers, line, nocolor)
 
     elif random:  # get a random entry
         with open(f"{HOME}/.happyjar.txt") as happy_file:
@@ -166,10 +163,10 @@ def read_file(
             for line in happy_file:
                 key = line.split()
                 # if the date hasn't already been added
-                if key[1] not in map.keys():
-                    map[key[1]] = 1
-                else:  # if date has been added
+                if key[1] in map:  # if date has been added
                     map[key[1]] += 1  # increment count
+                else:
+                    map[key[1]] = 1
         for item in map:
             count = "" if map[item] == 1 else "s"  # time/s
             output = f"You were happy {map[item]} time{count} on {item}"
@@ -195,8 +192,6 @@ def display_entry(flowers, line, nocolor, count=False):
     """
     global skip_flower  # the last flower used
     flower = ""
-    flower_selection = ["🌼 ", "🍀 ", "🌻 ", "🌺 ", "🌹 ", "🌸 ", "🌷 ", "💐 ", "🏵️  "]
-
     if not count:
         # format the output
         line = line.split(": ")
@@ -208,6 +203,8 @@ def display_entry(flowers, line, nocolor, count=False):
 
     # print line
     if line != "\n" and flowers:
+        flower_selection = ["🌼 ", "🍀 ", "🌻 ", "🌺 ", "🌹 ", "🌸 ", "🌷 ", "💐 ", "🏵️  "]
+
         flower = choice(flower_selection)
         # randomly choose any flower except skip_flower to avoid repetition
         flower = choice([item for item in flower_selection if item != skip_flower])
@@ -219,13 +216,12 @@ def display_entry(flowers, line, nocolor, count=False):
             console.print(
                 f"{flower} [{toggle_style[0]}][{date}][/{toggle_style[0]}]: [{toggle_style[1]}]{entry}[/{toggle_style[1]}]"
             )
-    else:
-        if count:
-            console.print(line)
-        else:  # not count
-            console.print(
-                f"[{toggle_style[0]}][{date}][/{toggle_style[0]}]: [{toggle_style[1]}]{entry}[/{toggle_style[1]}]"
-            )
+    elif count:
+        console.print(line)
+    else:  # not count
+        console.print(
+            f"[{toggle_style[0]}][{date}][/{toggle_style[0]}]: [{toggle_style[1]}]{entry}[/{toggle_style[1]}]"
+        )
 
 
 def cli() -> None:
@@ -289,11 +285,10 @@ def cli() -> None:
         if args.all == "tag" and args.today:
             tag = args.today
             console.print("")
-            header("Entries tagged with " + tag)
+            header(f"Entries tagged with {tag}")
             read_file(tag=tag, flowers=args.flowers, nocolor=args.nocolor)
             footer()
 
-        # `happy get today`
         elif args.all == "today":
             console.print("")
             header("Today's Entries")
@@ -301,14 +296,12 @@ def cli() -> None:
             footer()
             exit()
 
-        # `happy get all`
         elif args.all == "all":
             console.print("")
             header("All Entries")
             read_file(flowers=args.flowers, nocolor=args.nocolor)
             footer()
 
-        # `happy get random [<num>]`
         elif args.all == "random":
             console.print("")
             if args.today:
@@ -331,15 +324,13 @@ def cli() -> None:
                 read_file(random=1, flowers=args.flowers, nocolor=args.nocolor)
             footer()
 
-        # `happy get count`
         elif args.all == "count":
             print("")
             read_file(count=True, flowers=args.flowers, nocolor=args.nocolor)
 
-        # `happy get [after|before|<date>]
         else:
             # checks for after or until command
-            if args.all == "after" or args.all == "before":
+            if args.all in ["after", "before"]:
                 date = args.today
                 # uses current date if input is today
                 if args.today == "today":
@@ -357,7 +348,7 @@ def cli() -> None:
                 get.print_help()  # print usage for `get`
             else:
                 if dt:
-                    if args.all == "before" or args.all == "after":
+                    if args.all in ["before", "after"]:
                         header(f"Entries logged {args.all} {dt.group()}")
                     else:
                         header(f"Entries logged on {dt.group()}")
